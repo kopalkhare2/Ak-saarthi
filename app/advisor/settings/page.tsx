@@ -146,6 +146,62 @@ export default function SettingsPage() {
           Uploaded files are stored separately in the uploads/ directory on the server.
         </p>
       </div>
+
+      {/* Advisor Access Management */}
+      <div className="card p-6 animate-fade-in">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-2">
+          <User size={18} className="text-yellow-400" /> Advisor Authorization & Access Control
+        </h2>
+        <p className="text-sm text-slate-400 mb-4">
+          Advisor accounts are restricted. Only authorized administrators can grant new Advisor access. Public sign-ups create Client accounts only.
+        </p>
+
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const formEl = e.currentTarget;
+            const emailInput = formEl.elements.namedItem('advisorEmail') as HTMLInputElement;
+            const passInput = formEl.elements.namedItem('advisorPassword') as HTMLInputElement;
+            const msgEl = formEl.querySelector('#advisorMsg') as HTMLDivElement;
+
+            try {
+              const res = await fetch('/api/advisor/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: emailInput.value, password: passInput.value }),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                msgEl.innerText = `❌ ${data.error || 'Failed to create'}`;
+                msgEl.className = 'text-xs text-red-400 mt-2';
+              } else {
+                msgEl.innerText = `✅ Advisor account created for ${emailInput.value}!`;
+                msgEl.className = 'text-xs text-emerald-400 mt-2';
+                emailInput.value = '';
+                passInput.value = '';
+              }
+            } catch (err) {
+              msgEl.innerText = '❌ Request failed';
+              msgEl.className = 'text-xs text-red-400 mt-2';
+            }
+          }}
+          className="space-y-3 max-w-md bg-slate-900/60 p-4 rounded-xl border border-slate-800"
+        >
+          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Grant New Advisor Access</h3>
+          <div>
+            <label className="label">Advisor Email</label>
+            <input className="input" name="advisorEmail" type="email" placeholder="new.advisor@firm.com" required />
+          </div>
+          <div>
+            <label className="label">Temporary Password</label>
+            <input className="input" name="advisorPassword" type="password" placeholder="••••••••" required minLength={6} />
+          </div>
+          <button type="submit" className="btn btn-primary w-full py-2 text-xs">
+            Create Advisor Account
+          </button>
+          <div id="advisorMsg"></div>
+        </form>
+      </div>
     </div>
   );
 }

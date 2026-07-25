@@ -149,10 +149,14 @@ export default function RegisterPage() {
             <h1 className="text-xl font-bold">AK Saarthi AI</h1>
           </div>
 
-          <h2 className="text-2xl font-bold mb-2">Create your account</h2>
-          <p className="text-sm text-slate-400 mb-6">
-            {step === 1 ? 'Enter your basic details to get started' : 'Tell us a bit more about yourself (optional)'}
+          <h2 className="text-2xl font-bold mb-1">Create Client Account</h2>
+          <p className="text-sm text-slate-400 mb-4">
+            {step === 1 ? 'Enter your basic details to register as a client' : 'Tell us a bit more about your financial profile (optional)'}
           </p>
+
+          <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-400 mb-6">
+            👤 <strong>Client Self-Registration Portal:</strong> Public sign-ups create Client Accounts. Advisor access is invite-only by the administrator.
+          </div>
 
           {/* Step Indicator */}
           <div className="flex items-center gap-2 mb-6">
