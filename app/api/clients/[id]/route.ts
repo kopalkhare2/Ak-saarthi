@@ -35,7 +35,7 @@ export async function PUT(
     const { family, notes, ...clientData } = body;
 
     // Use a transaction to update client and recreate family members
-    const updatedClient = await prisma.$transaction(async (tx) => {
+    const updatedClient = await prisma.$transaction(async (tx: any) => {
       // Delete existing family members
       await tx.familyMember.deleteMany({
         where: { clientId: id },

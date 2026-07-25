@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     });
     
     // Map dates to match original schema and string-based representation
-    const formattedClients = clients.map(client => ({
+    const formattedClients = clients.map((client: any) => ({
       ...client,
       // Convert database notes (if any) and other properties to match typescript structures
       notes: [], // API has a separate notes table/handling if needed or simple array

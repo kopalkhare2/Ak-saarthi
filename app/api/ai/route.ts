@@ -28,11 +28,11 @@ function getMockResponse(query: string, data: { clients: any[]; policies: any[];
   }
 
   if (q.includes('renewal') && !q.includes('draft')) {
-    const upcoming = policies.filter((p) => p.renewalStatus === 'due');
+    const upcoming = policies.filter((p: any) => p.renewalStatus === 'due');
     if (upcoming.length === 0) return "Great news! No upcoming renewals at the moment.";
     return `**Upcoming Renewals (${upcoming.length})**\n\n` +
-      upcoming.map((p) => {
-        const c = clients.find((cl) => cl.id === p.clientId);
+      upcoming.map((p: any) => {
+        const c = clients.find((cl: any) => cl.id === p.clientId);
         return `• **${c ? getFullName(c.firstName, c.lastName) : 'Unknown'}** — ${p.company} (${p.policyNumber}) — Premium: ${formatCurrency(p.premium)}`;
       }).join('\n');
   }
@@ -45,11 +45,11 @@ function getMockResponse(query: string, data: { clients: any[]; policies: any[];
   }
 
   if (q.includes('insurance gap') || q.includes('gap')) {
-    const noHealth = clients.filter((c) => !policies.some((p) => p.clientId === c.id && p.type === 'health'));
-    const noTerm = clients.filter((c) => !policies.some((p) => p.clientId === c.id && (p.type === 'term' || p.type === 'life')));
+    const noHealth = clients.filter((c: any) => !policies.some((p: any) => p.clientId === c.id && p.type === 'health'));
+    const noTerm = clients.filter((c: any) => !policies.some((p: any) => p.clientId === c.id && (p.type === 'term' || p.type === 'life')));
     return `**Insurance Gap Analysis**\n\n` +
-      `• **No Health Insurance:** ${noHealth.length > 0 ? noHealth.map((c) => getFullName(c.firstName, c.lastName)).join(', ') : 'All clients covered ✓'}\n` +
-      `• **No Life/Term Insurance:** ${noTerm.length > 0 ? noTerm.map((c) => getFullName(c.firstName, c.lastName)).join(', ') : 'All clients covered ✓'}\n\n` +
+      `• **No Health Insurance:** ${noHealth.length > 0 ? noHealth.map((c: any) => getFullName(c.firstName, c.lastName)).join(', ') : 'All clients covered ✓'}\n` +
+      `• **No Life/Term Insurance:** ${noTerm.length > 0 ? noTerm.map((c: any) => getFullName(c.firstName, c.lastName)).join(', ') : 'All clients covered ✓'}\n\n` +
       `**Action:** Prioritize these clients for insurance discussions in your next meetings.`;
   }
 
