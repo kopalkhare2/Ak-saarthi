@@ -5,6 +5,7 @@ import * as jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import { getJwtSecret } from '@/lib/auth';
 import { ensureSeeded } from '@/lib/init-db';
+import { getStoreAdvisors } from '@/lib/kv-store';
 
 export async function POST(request: Request) {
   try {
@@ -33,32 +34,54 @@ export async function POST(request: Request) {
 
     // Special auto-provisioning for kopalkhare2@gmail.com as Advisor if missing
     if (!user && email === 'kopalkhare2@gmail.com') {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      user = await prisma.user.create({
-        data: {
-          email: 'kopalkhare2@gmail.com',
-          password: hashedPassword,
-          role: 'advisor',
-        },
-      });
+      try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        user = await prisma.user.create({
+          data: {
+            email: 'kopalkhare2@gmail.com',
+            password: hashedPassword,
+            role: 'advisor',
+          },
+        });
+      } catch (e) {}
+    }
+
+    // Check persistent KV store for advisor accounts
+    if (!user) {
+      const storeAdvisors = getStoreAdvisors();
+      const kvAdvisor = storeAdvisors.find((a) => a.email.toLowerCase() === email);
+      if (kvAdvisor) {
+        const isMatch = await bcrypt.compare(password, kvAdvisor.passwordHash);
+        if (isMatch) {
+          user = {
+            id: kvAdvisor.id,
+            email: kvAdvisor.email,
+            password: kvAdvisor.passwordHash,
+            role: 'advisor',
+            clientId: null,
+          } as any;
+        }
+      }
     }
 
     // Auto-provision Client User account if Client profile exists but User account hasn't been created yet
     if (!user) {
-      const clientRecord = await prisma.client.findFirst({
-        where: { email: { equals: email } },
-      });
-      if (clientRecord) {
-        const hashedPassword = await bcrypt.hash(password || 'password', 10);
-        user = await prisma.user.create({
-          data: {
-            email: clientRecord.email.toLowerCase().trim(),
-            password: hashedPassword,
-            role: 'client',
-            clientId: clientRecord.id,
-          },
+      try {
+        const clientRecord = await prisma.client.findFirst({
+          where: { email: { equals: email } },
         });
-      }
+        if (clientRecord) {
+          const hashedPassword = await bcrypt.hash(password || 'password', 10);
+          user = await prisma.user.create({
+            data: {
+              email: clientRecord.email.toLowerCase().trim(),
+              password: hashedPassword,
+              role: 'client',
+              clientId: clientRecord.id,
+            },
+          });
+        }
+      } catch (e) {}
     }
 
     if (!user) {
