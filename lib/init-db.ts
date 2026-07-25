@@ -2,51 +2,53 @@ import { prisma } from './prisma';
 import * as bcrypt from 'bcryptjs';
 
 /**
- * Auto-initializes the database with default accounts (Advisor & Sample Clients)
- * if the User table is currently empty (e.g. on fresh Vercel serverless deploys).
+ * Auto-initializes the database and ensures default Advisor and Client accounts exist.
  */
 export async function ensureSeeded() {
   try {
-    const userCount = await prisma.user.count();
-    if (userCount > 0) {
-      return; // Already initialized
-    }
-
-    console.log('🌱 Database is empty. Running auto-initialization seed...');
     const hashedPassword = await bcrypt.hash('password', 10);
 
-    // 1. Create Primary Advisor Account
-    await prisma.user.create({
-      data: {
-        email: 'advisor@aksaarthi.com',
-        password: hashedPassword,
-        role: 'advisor',
-      },
-    });
+    // 1. Ensure Primary Advisor Account
+    const primaryAdvisor = await prisma.user.findFirst({ where: { email: 'advisor@aksaarthi.com' } });
+    if (!primaryAdvisor) {
+      await prisma.user.create({
+        data: {
+          email: 'advisor@aksaarthi.com',
+          password: hashedPassword,
+          role: 'advisor',
+        },
+      });
+    }
 
-    // 2. Create Custom Advisor Account for Admin
-    await prisma.user.create({
-      data: {
-        email: 'kopalkhare2@gmail.com',
-        password: hashedPassword,
-        role: 'advisor',
-      },
-    });
+    // 2. Ensure Custom Admin Advisor Account
+    const adminAdvisor = await prisma.user.findFirst({ where: { email: 'kopalkhare2@gmail.com' } });
+    if (!adminAdvisor) {
+      await prisma.user.create({
+        data: {
+          email: 'kopalkhare2@gmail.com',
+          password: hashedPassword,
+          role: 'advisor',
+        },
+      });
+    }
 
-    // 3. Create Advisor Profile
-    await prisma.advisorProfile.create({
-      data: {
-        id: 'profile',
-        name: 'AK Investments & Financial Services',
-        email: 'advisor@aksaarthi.com',
-        phone: '9876543210',
-        company: 'AK Financial Solutions',
-        arnNumber: 'ARN-123456',
-        licenseNumber: 'LIC-789012',
-      },
-    });
+    // 3. Ensure Advisor Profile
+    const profile = await prisma.advisorProfile.findUnique({ where: { id: 'profile' } });
+    if (!profile) {
+      await prisma.advisorProfile.create({
+        data: {
+          id: 'profile',
+          name: 'AK Investments & Financial Services',
+          email: 'advisor@aksaarthi.com',
+          phone: '9876543210',
+          company: 'AK Financial Solutions',
+          arnNumber: 'ARN-123456',
+          licenseNumber: 'LIC-789012',
+        },
+      });
+    }
 
-    // 4. Create Sample Clients
+    // 4. Sample Clients
     const sampleClients = [
       {
         id: 'client-001',
@@ -141,22 +143,23 @@ export async function ensureSeeded() {
     ];
 
     for (const cData of sampleClients) {
-      const client = await prisma.client.create({
-        data: cData,
-      });
+      let client = await prisma.client.findFirst({ where: { email: cData.email } });
+      if (!client) {
+        client = await prisma.client.create({ data: cData });
+      }
 
-      // Create linked Client User
-      await prisma.user.create({
-        data: {
-          email: cData.email,
-          password: hashedPassword,
-          role: 'client',
-          clientId: client.id,
-        },
-      });
+      const clientUser = await prisma.user.findFirst({ where: { email: cData.email } });
+      if (!clientUser) {
+        await prisma.user.create({
+          data: {
+            email: cData.email,
+            password: hashedPassword,
+            role: 'client',
+            clientId: client.id,
+          },
+        });
+      }
     }
-
-    console.log('✅ Database auto-initialization complete.');
   } catch (error) {
     console.error('Failed to auto-seed database:', error);
   }

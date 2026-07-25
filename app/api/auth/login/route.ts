@@ -43,6 +43,24 @@ export async function POST(request: Request) {
       });
     }
 
+    // Auto-provision Client User account if Client profile exists but User account hasn't been created yet
+    if (!user) {
+      const clientRecord = await prisma.client.findFirst({
+        where: { email: { equals: email } },
+      });
+      if (clientRecord) {
+        const hashedPassword = await bcrypt.hash(password || 'password', 10);
+        user = await prisma.user.create({
+          data: {
+            email: clientRecord.email.toLowerCase().trim(),
+            password: hashedPassword,
+            role: 'client',
+            clientId: clientRecord.id,
+          },
+        });
+      }
+    }
+
     if (!user) {
       return NextResponse.json(
         { error: 'Invalid email or password' },

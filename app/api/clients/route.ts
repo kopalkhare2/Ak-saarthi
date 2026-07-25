@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import * as bcrypt from 'bcryptjs';
 
 export async function GET(request: Request) {
   try {
@@ -54,6 +55,22 @@ export async function POST(request: Request) {
         family: true,
       },
     });
+
+    // Create linked Client User account with initial default password 'password'
+    if (newClient.email) {
+      const existingUser = await prisma.user.findFirst({ where: { email: newClient.email.toLowerCase().trim() } });
+      if (!existingUser) {
+        const hashedPassword = await bcrypt.hash('password', 10);
+        await prisma.user.create({
+          data: {
+            email: newClient.email.toLowerCase().trim(),
+            password: hashedPassword,
+            role: 'client',
+            clientId: newClient.id,
+          },
+        });
+      }
+    }
 
     return NextResponse.json(newClient);
   } catch (error: any) {
