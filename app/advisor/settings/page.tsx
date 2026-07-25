@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/app-context';
-import { Settings as SettingsIcon, User, Bell, Palette, Database, Save, Trash2, RefreshCw, Download } from 'lucide-react';
+import { User, Bell, Database, Save, Download, CheckCircle2, XCircle, Clock, ShieldCheck } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { refresh } = useApp();
+  const { tasks, updateTask, deleteTask } = useApp();
   const [profile, setProfile] = useState({
     name: 'Advisor Kumar',
     email: 'advisor@aksaarthi.com',
@@ -22,6 +22,11 @@ export default function SettingsPage() {
     taskDeadlines: true,
   });
   const [saved, setSaved] = useState(false);
+
+  // Filter access request tasks
+  const pendingRequests = tasks.filter(
+    (t) => t.title.startsWith('Advisor Access Request') && t.status !== 'done'
+  );
 
   useEffect(() => {
     const savedProfile = localStorage.getItem('ak_advisor_profile');
@@ -46,24 +51,58 @@ export default function SettingsPage() {
   };
 
   const handleDownloadBackup = () => {
-    // Triggers the server-side backup endpoint which creates and downloads a full SQLite DB copy
     const link = document.createElement('a');
     link.href = '/api/backup';
     link.download = `aksaarthi-backup-${new Date().toISOString().split('T')[0]}.db`;
     link.click();
   };
 
+  const handleApproveRequest = async (taskId: string, reqDescription?: string) => {
+    // Extract email from description e.g. "Email: user@email.com | Phone: 9876543210..."
+    const emailMatch = reqDescription?.match(/Email:\s*([^\s|]+)/i);
+    const email = emailMatch ? emailMatch[1] : '';
+
+    const targetEmail = prompt('Confirm Email for new Advisor account:', email || '');
+    if (!targetEmail) return;
+
+    const tempPassword = prompt('Set temporary password for new Advisor account:', 'password123');
+    if (!tempPassword) return;
+
+    try {
+      const res = await fetch('/api/advisor/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail, password: tempPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(`Failed to approve: ${data.error || 'Error creating account'}`);
+        return;
+      }
+
+      // Mark task as done
+      const taskObj = tasks.find((t) => t.id === taskId);
+      if (taskObj) {
+        updateTask({ ...taskObj, status: 'done' });
+      }
+
+      alert(`✅ Advisor account successfully created for ${targetEmail}! Temporary password: ${tempPassword}`);
+    } catch (err) {
+      alert('Failed to process approval.');
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-sm text-slate-400 mt-1">Manage your profile and preferences</p>
+        <h1 className="text-2xl font-bold">Settings & Administration</h1>
+        <p className="text-sm text-slate-400 mt-1">Manage profile, preferences, backups, and advisor access control</p>
       </div>
 
       {/* Profile */}
       <div className="card p-6 animate-fade-in">
         <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
-          <User size={18} className="text-yellow-400" /> Profile
+          <User size={18} className="text-yellow-400" /> Administrator Profile
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -96,6 +135,102 @@ export default function SettingsPage() {
             <Save size={16} /> {saved ? 'Saved ✓' : 'Save Profile'}
           </button>
         </div>
+      </div>
+
+      {/* Advisor Access Control & Pending Requests */}
+      <div className="card p-6 animate-fade-in border-yellow-500/20">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-2">
+          <ShieldCheck size={20} className="text-yellow-400" /> Advisor Access Control & Requests
+        </h2>
+        <p className="text-sm text-slate-400 mb-6">
+          You are the system administrator. Public sign-ups create Client accounts only. All Advisor access requests require your approval here.
+        </p>
+
+        {/* Pending Requests List */}
+        <div className="mb-6 space-y-3">
+          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+            <Clock size={14} className="text-amber-400" />
+            Pending Advisor Access Requests ({pendingRequests.length})
+          </h3>
+
+          {pendingRequests.length === 0 ? (
+            <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-xs text-slate-500">
+              No pending advisor access requests at this time.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {pendingRequests.map((req) => (
+                <div key={req.id} className="p-4 rounded-xl bg-slate-900 border border-amber-500/30 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">{req.title}</p>
+                    <p className="text-xs text-slate-400 mt-1">{req.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleApproveRequest(req.id, req.description)}
+                      className="btn btn-primary text-xs py-1.5 px-3"
+                    >
+                      <CheckCircle2 size={14} /> Approve & Grant
+                    </button>
+                    <button
+                      onClick={() => deleteTask(req.id)}
+                      className="btn btn-danger text-xs py-1.5 px-3"
+                    >
+                      <XCircle size={14} /> Decline
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Manual Creation Form */}
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const formEl = e.currentTarget;
+            const emailInput = formEl.elements.namedItem('advisorEmail') as HTMLInputElement;
+            const passInput = formEl.elements.namedItem('advisorPassword') as HTMLInputElement;
+            const msgEl = formEl.querySelector('#advisorMsg') as HTMLDivElement;
+
+            try {
+              const res = await fetch('/api/advisor/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: emailInput.value, password: passInput.value }),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                msgEl.innerText = `❌ ${data.error || 'Failed to create'}`;
+                msgEl.className = 'text-xs text-red-400 mt-2';
+              } else {
+                msgEl.innerText = `✅ Advisor account created for ${emailInput.value}!`;
+                msgEl.className = 'text-xs text-emerald-400 mt-2';
+                emailInput.value = '';
+                passInput.value = '';
+              }
+            } catch (err) {
+              msgEl.innerText = '❌ Request failed';
+              msgEl.className = 'text-xs text-red-400 mt-2';
+            }
+          }}
+          className="space-y-3 max-w-md bg-slate-900/60 p-4 rounded-xl border border-slate-800"
+        >
+          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Manually Create Advisor Account</h3>
+          <div>
+            <label className="label">Advisor Email</label>
+            <input className="input" name="advisorEmail" type="email" placeholder="new.advisor@firm.com" required />
+          </div>
+          <div>
+            <label className="label">Temporary Password</label>
+            <input className="input" name="advisorPassword" type="password" placeholder="••••••••" required minLength={6} />
+          </div>
+          <button type="submit" className="btn btn-primary w-full py-2 text-xs">
+            Create Advisor Account
+          </button>
+          <div id="advisorMsg"></div>
+        </form>
       </div>
 
       {/* Notifications */}
@@ -143,64 +278,7 @@ export default function SettingsPage() {
         </div>
         <p className="text-xs text-slate-500 mt-3">
           Backup includes all clients, policies, investments, commissions, appointments, tasks, and document metadata.
-          Uploaded files are stored separately in the uploads/ directory on the server.
         </p>
-      </div>
-
-      {/* Advisor Access Management */}
-      <div className="card p-6 animate-fade-in">
-        <h2 className="text-lg font-semibold flex items-center gap-2 mb-2">
-          <User size={18} className="text-yellow-400" /> Advisor Authorization & Access Control
-        </h2>
-        <p className="text-sm text-slate-400 mb-4">
-          Advisor accounts are restricted. Only authorized administrators can grant new Advisor access. Public sign-ups create Client accounts only.
-        </p>
-
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const formEl = e.currentTarget;
-            const emailInput = formEl.elements.namedItem('advisorEmail') as HTMLInputElement;
-            const passInput = formEl.elements.namedItem('advisorPassword') as HTMLInputElement;
-            const msgEl = formEl.querySelector('#advisorMsg') as HTMLDivElement;
-
-            try {
-              const res = await fetch('/api/advisor/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: emailInput.value, password: passInput.value }),
-              });
-              const data = await res.json();
-              if (!res.ok) {
-                msgEl.innerText = `❌ ${data.error || 'Failed to create'}`;
-                msgEl.className = 'text-xs text-red-400 mt-2';
-              } else {
-                msgEl.innerText = `✅ Advisor account created for ${emailInput.value}!`;
-                msgEl.className = 'text-xs text-emerald-400 mt-2';
-                emailInput.value = '';
-                passInput.value = '';
-              }
-            } catch (err) {
-              msgEl.innerText = '❌ Request failed';
-              msgEl.className = 'text-xs text-red-400 mt-2';
-            }
-          }}
-          className="space-y-3 max-w-md bg-slate-900/60 p-4 rounded-xl border border-slate-800"
-        >
-          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Grant New Advisor Access</h3>
-          <div>
-            <label className="label">Advisor Email</label>
-            <input className="input" name="advisorEmail" type="email" placeholder="new.advisor@firm.com" required />
-          </div>
-          <div>
-            <label className="label">Temporary Password</label>
-            <input className="input" name="advisorPassword" type="password" placeholder="••••••••" required minLength={6} />
-          </div>
-          <button type="submit" className="btn btn-primary w-full py-2 text-xs">
-            Create Advisor Account
-          </button>
-          <div id="advisorMsg"></div>
-        </form>
       </div>
     </div>
   );
