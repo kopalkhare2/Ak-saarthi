@@ -94,7 +94,7 @@ export async function POST(request: Request) {
 
     // Format context for Gemini
     const databaseContext = {
-      clients: clients.map(c => ({
+      clients: clients.map((c: any) => ({
         id: c.id,
         name: `${c.firstName} ${c.lastName}`,
         dob: c.dob,
@@ -105,9 +105,9 @@ export async function POST(request: Request) {
         annualIncome: c.annualIncome,
         riskProfile: c.riskProfile,
         financialGoals: c.financialGoals,
-        family: c.family.map(f => `${f.name} (${f.relation})`),
+        family: (c.family || []).map((f: any) => `${f.name} (${f.relation})`),
       })),
-      policies: policies.map(p => ({
+      policies: policies.map((p: any) => ({
         id: p.id,
         clientId: p.clientId,
         company: p.company,
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
         status: p.status,
         renewalStatus: p.renewalStatus,
       })),
-      investments: investments.map(i => ({
+      investments: investments.map((i: any) => ({
         id: i.id,
         clientId: i.clientId,
         type: i.type,
