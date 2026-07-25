@@ -182,3 +182,13 @@ model AdvisorProfile {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+model AdvisorAccessRequest {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String
+  status    String   @default("pending") // "pending" | "approved" | "declined"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useApp } from '@/contexts/app-context';
-import { User, Bell, Database, Save, Download, CheckCircle2, XCircle, Clock, ShieldCheck } from 'lucide-react';
+import { User, Bell, Database, Save, Download, CheckCircle2, XCircle, Clock, ShieldCheck, Mail, Phone } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { tasks, updateTask, deleteTask } = useApp();
   const [profile, setProfile] = useState({
     name: 'Advisor Kumar',
     email: 'advisor@aksaarthi.com',
@@ -22,11 +21,23 @@ export default function SettingsPage() {
     taskDeadlines: true,
   });
   const [saved, setSaved] = useState(false);
+  const [accessRequests, setAccessRequests] = useState<any[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState<boolean>(true);
 
-  // Filter access request tasks
-  const pendingRequests = tasks.filter(
-    (t) => t.title.startsWith('Advisor Access Request') && t.status !== 'done'
-  );
+  const fetchAccessRequests = async () => {
+    try {
+      setLoadingRequests(true);
+      const res = await fetch('/api/advisor/requests');
+      if (res.ok) {
+        const data = await res.json();
+        setAccessRequests(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch requests', e);
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
 
   useEffect(() => {
     const savedProfile = localStorage.getItem('ak_advisor_profile');
@@ -41,6 +52,7 @@ export default function SettingsPage() {
         setNotifications(JSON.parse(savedNotifications));
       } catch (e) {}
     }
+    fetchAccessRequests();
   }, []);
 
   const handleSave = () => {
@@ -57,12 +69,8 @@ export default function SettingsPage() {
     link.click();
   };
 
-  const handleApproveRequest = async (taskId: string, reqDescription?: string) => {
-    // Extract email from description e.g. "Email: user@email.com | Phone: 9876543210..."
-    const emailMatch = reqDescription?.match(/Email:\s*([^\s|]+)/i);
-    const email = emailMatch ? emailMatch[1] : '';
-
-    const targetEmail = prompt('Confirm Email for new Advisor account:', email || '');
+  const handleApproveRequest = async (reqId: string, reqEmail: string, reqName: string) => {
+    const targetEmail = prompt('Confirm Email for new Advisor account:', reqEmail || '');
     if (!targetEmail) return;
 
     const tempPassword = prompt('Set temporary password for new Advisor account:', 'password123');
@@ -80,17 +88,36 @@ export default function SettingsPage() {
         return;
       }
 
-      // Mark task as done
-      const taskObj = tasks.find((t) => t.id === taskId);
-      if (taskObj) {
-        updateTask({ ...taskObj, status: 'done' });
-      }
+      // Mark request as approved
+      await fetch('/api/advisor/requests', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: reqId, status: 'approved' }),
+      });
 
-      alert(`✅ Advisor account successfully created for ${targetEmail}! Temporary password: ${tempPassword}`);
+      fetchAccessRequests();
+      alert(`✅ Advisor account created for ${targetEmail}!\nTemporary Password: ${tempPassword}`);
     } catch (err) {
       alert('Failed to process approval.');
     }
   };
+
+  const handleDeclineRequest = async (reqId: string) => {
+    if (!confirm('Are you sure you want to decline this request?')) return;
+
+    try {
+      await fetch('/api/advisor/requests', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: reqId, status: 'declined' }),
+      });
+      fetchAccessRequests();
+    } catch (err) {
+      alert('Failed to decline request.');
+    }
+  };
+
+  const pendingRequests = accessRequests.filter((r) => r.status === 'pending');
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -148,12 +175,21 @@ export default function SettingsPage() {
 
         {/* Pending Requests List */}
         <div className="mb-6 space-y-3">
-          <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-            <Clock size={14} className="text-amber-400" />
-            Pending Advisor Access Requests ({pendingRequests.length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+              <Clock size={14} className="text-amber-400" />
+              Pending Advisor Access Requests ({pendingRequests.length})
+            </h3>
+            <button onClick={fetchAccessRequests} className="text-xs text-yellow-400 hover:underline">
+              Refresh
+            </button>
+          </div>
 
-          {pendingRequests.length === 0 ? (
+          {loadingRequests ? (
+            <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-xs text-slate-400">
+              Loading requests...
+            </div>
+          ) : pendingRequests.length === 0 ? (
             <div className="p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-xs text-slate-500">
               No pending advisor access requests at this time.
             </div>
@@ -162,18 +198,21 @@ export default function SettingsPage() {
               {pendingRequests.map((req) => (
                 <div key={req.id} className="p-4 rounded-xl bg-slate-900 border border-amber-500/30 flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{req.title}</p>
-                    <p className="text-xs text-slate-400 mt-1">{req.description}</p>
+                    <p className="text-sm font-semibold text-white">{req.name}</p>
+                    <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                      <span className="flex items-center gap-1"><Mail size={12} /> {req.email}</span>
+                      <span className="flex items-center gap-1"><Phone size={12} /> {req.phone}</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button
-                      onClick={() => handleApproveRequest(req.id, req.description)}
+                      onClick={() => handleApproveRequest(req.id, req.email, req.name)}
                       className="btn btn-primary text-xs py-1.5 px-3"
                     >
                       <CheckCircle2 size={14} /> Approve & Grant
                     </button>
                     <button
-                      onClick={() => deleteTask(req.id)}
+                      onClick={() => handleDeclineRequest(req.id)}
                       className="btn btn-danger text-xs py-1.5 px-3"
                     >
                       <XCircle size={14} /> Decline
@@ -194,6 +233,9 @@ export default function SettingsPage() {
             const passInput = formEl.elements.namedItem('advisorPassword') as HTMLInputElement;
             const msgEl = formEl.querySelector('#advisorMsg') as HTMLDivElement;
 
+            msgEl.innerText = 'Creating account...';
+            msgEl.className = 'text-xs text-yellow-400 mt-2';
+
             try {
               const res = await fetch('/api/advisor/create', {
                 method: 'POST',
@@ -202,17 +244,17 @@ export default function SettingsPage() {
               });
               const data = await res.json();
               if (!res.ok) {
-                msgEl.innerText = `❌ ${data.error || 'Failed to create'}`;
-                msgEl.className = 'text-xs text-red-400 mt-2';
+                msgEl.innerText = `❌ ${data.error || 'Failed to create advisor account'}`;
+                msgEl.className = 'text-xs text-red-400 font-medium mt-2';
               } else {
-                msgEl.innerText = `✅ Advisor account created for ${emailInput.value}!`;
-                msgEl.className = 'text-xs text-emerald-400 mt-2';
+                msgEl.innerText = `✅ ${data.message || 'Advisor account created!'}`;
+                msgEl.className = 'text-xs text-emerald-400 font-medium mt-2';
                 emailInput.value = '';
                 passInput.value = '';
               }
             } catch (err) {
-              msgEl.innerText = '❌ Request failed';
-              msgEl.className = 'text-xs text-red-400 mt-2';
+              msgEl.innerText = '❌ Network request failed';
+              msgEl.className = 'text-xs text-red-400 font-medium mt-2';
             }
           }}
           className="space-y-3 max-w-md bg-slate-900/60 p-4 rounded-xl border border-slate-800"

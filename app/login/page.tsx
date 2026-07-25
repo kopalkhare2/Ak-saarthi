@@ -74,15 +74,14 @@ export default function LoginPage() {
     if (!requestName || !requestEmail || !requestPhone) return;
 
     try {
-      // Create a task for the primary advisor to review the request
-      await fetch('/api/tasks', {
+      // Post to Advisor Access Requests API
+      await fetch('/api/advisor/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: `Advisor Access Request: ${requestName}`,
-          description: `Email: ${requestEmail} | Phone: ${requestPhone} | Requested access as financial advisor.`,
-          priority: 'high',
-          status: 'todo',
+          name: requestName,
+          email: requestEmail,
+          phone: requestPhone,
         }),
       });
       setRequestSuccess(true);
@@ -92,9 +91,9 @@ export default function LoginPage() {
         setRequestName('');
         setRequestEmail('');
         setRequestPhone('');
-      }, 2500);
+      }, 3000);
     } catch (err) {
-      console.error(err);
+      alert('Failed to submit access request. Please try again.');
     }
   };
 
