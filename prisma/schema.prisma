@@ -1,0 +1,184 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      String   // "advisor" | "client"
+  clientId  String?  // If role is "client", links to their Client profile
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Client {
+  id                  String         @id @default(uuid())
+  firstName           String
+  lastName            String
+  dob                 String
+  gender              String
+  phone               String
+  alternatePhone      String?
+  email               String         @unique
+  address             String
+  city                String
+  state               String
+  pincode             String
+  occupation          String
+  employer            String?
+  maritalStatus       String
+  annualIncome        Float
+  existingInsurance   String?
+  existingInvestments String?
+  loans               String?
+  riskProfile         String
+  financialGoals      String?
+  status              String         @default("active") // "active" | "inactive"
+  isDeleted           Boolean        @default(false)
+  deletedAt           DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  family              FamilyMember[]
+  policies            Policy[]
+  investments         Investment[]
+  commissions         Commission[]
+  appointments        Appointment[]
+  documents           ClientDocument[]
+  tasks               Task[]
+}
+
+model FamilyMember {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  relation  String   // "spouse" | "child" | "parent" | "nominee" | "other"
+  dob       String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Policy {
+  id               String       @id @default(uuid())
+  clientId         String
+  client           Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  company          String
+  policyNumber     String       @unique
+  type             String       // 'life' | 'health' | 'motor' | 'term' | 'ulip' | 'travel' | 'home'
+  premium          Float
+  premiumFrequency String       // 'monthly' | 'quarterly' | 'half_yearly' | 'yearly'
+  dueDate          String
+  startDate        String
+  endDate          String?
+  sumAssured       Float
+  nominee          String
+  status           String       // 'active' | 'lapsed' | 'pending' | 'claim' | 'expired'
+  claimStatus      String?
+  renewalStatus    String       @default("not_due") // 'due' | 'renewed' | 'not_due'
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  commissions      Commission[]
+}
+
+model Investment {
+  id             String   @id @default(uuid())
+  clientId       String
+  client         Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type           String   // 'mutual_fund' | 'sip' | 'stock' | 'etf' | 'bond' | 'gold' | 'nps' | 'fd' | 'ppf'
+  schemeName     String
+  fundHouse      String?
+  investedAmount Float
+  currentValue   Float
+  returns        Float    // percentage
+  sipAmount      Float?
+  sipDate        Int?     // day of month
+  startDate      String
+  maturityDate   String?
+  status         String   // 'active' | 'matured' | 'withdrawn' | 'paused'
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Commission {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  policyId  String?
+  policy    Policy?  @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  company   String
+  type      String   // 'first_year' | 'renewal' | 'trail'
+  amount    Float
+  month     String   // YYYY-MM
+  status    String   // 'paid' | 'pending'
+  paidDate  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Appointment {
+  id         String   @id @default(uuid())
+  clientId   String?
+  client     Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientName String?  // Flat name fallback if no client linked
+  title      String
+  type       String   // 'meeting' | 'follow_up' | 'call' | 'review'
+  date       String
+  time       String
+  duration   Int      // minutes
+  location   String?
+  notes      String?
+  status     String   @default("scheduled") // 'scheduled' | 'completed' | 'cancelled'
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  clientId    String?
+  client      Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientName  String?
+  title       String
+  description String?
+  priority    String   // 'high' | 'medium' | 'low'
+  status      String   // 'todo' | 'in_progress' | 'done'
+  dueDate     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ClientDocument {
+  id         String    @id @default(uuid())
+  clientId   String
+  client     Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientName String
+  type       String    // 'pan' | 'aadhaar' | 'policy' | 'kyc' | 'income_proof' | 'passport' | 'driving_license' | 'other'
+  name       String
+  fileName   String
+  filePath   String?   // Absolute path to the file on disk
+  mimeType   String?   // e.g. 'application/pdf', 'image/jpeg'
+  size       Int?
+  isDeleted  Boolean   @default(false)
+  deletedAt  DateTime?
+  uploadedAt DateTime  @default(now())
+}
+
+model AdvisorProfile {
+  id            String   @id @default("profile")
+  name          String
+  email         String
+  phone         String
+  company       String
+  arnNumber     String?
+  licenseNumber String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

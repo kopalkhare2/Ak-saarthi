@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/lib/generated/prisma
+
+# database file
+prisma/dev.db
+prisma/dev.db-journal
+
+# uploaded client documents (persistent on server, not in repo)
+/uploads/
+
+# database backups
+/backups/
