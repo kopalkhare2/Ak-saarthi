@@ -233,6 +233,71 @@ export default function SettingsPage() {
         </form>
       </div>
 
+      {/* Security & Change Password */}
+      <div className="card p-6 animate-fade-in border-slate-800">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-2">
+          <ShieldCheck size={18} className="text-yellow-400" /> Security & Change Password
+        </h2>
+        <p className="text-sm text-slate-400 mb-4">
+          Logged in with initial credentials? Update your password here to keep your administrator account secure.
+        </p>
+
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const formEl = e.currentTarget;
+            const curPass = (formEl.elements.namedItem('curPassword') as HTMLInputElement).value;
+            const newPass = (formEl.elements.namedItem('newPassword') as HTMLInputElement).value;
+            const confPass = (formEl.elements.namedItem('confPassword') as HTMLInputElement).value;
+            const msgEl = formEl.querySelector('#pwMsg') as HTMLDivElement;
+
+            if (newPass !== confPass) {
+              msgEl.innerText = '❌ New passwords do not match';
+              msgEl.className = 'text-xs text-red-400 mt-2';
+              return;
+            }
+
+            try {
+              const res = await fetch('/api/auth/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ currentPassword: curPass, newPassword: newPass }),
+              });
+              const data = await res.json();
+              if (!res.ok) {
+                msgEl.innerText = `❌ ${data.error || 'Failed to change password'}`;
+                msgEl.className = 'text-xs text-red-400 mt-2';
+              } else {
+                msgEl.innerText = '✅ Password updated successfully!';
+                msgEl.className = 'text-xs text-emerald-400 mt-2';
+                formEl.reset();
+              }
+            } catch (err) {
+              msgEl.innerText = '❌ Request failed';
+              msgEl.className = 'text-xs text-red-400 mt-2';
+            }
+          }}
+          className="space-y-3 max-w-md bg-slate-900/60 p-4 rounded-xl border border-slate-800"
+        >
+          <div>
+            <label className="label">Current Password</label>
+            <input className="input" name="curPassword" type="password" placeholder="••••••••" required />
+          </div>
+          <div>
+            <label className="label">New Password</label>
+            <input className="input" name="newPassword" type="password" placeholder="••••••••" required minLength={6} />
+          </div>
+          <div>
+            <label className="label">Confirm New Password</label>
+            <input className="input" name="confPassword" type="password" placeholder="••••••••" required minLength={6} />
+          </div>
+          <button type="submit" className="btn btn-secondary w-full py-2 text-xs">
+            Update My Password
+          </button>
+          <div id="pwMsg"></div>
+        </form>
+      </div>
+
       {/* Notifications */}
       <div className="card p-6 animate-fade-in">
         <h2 className="text-lg font-semibold flex items-center gap-2 mb-4">
